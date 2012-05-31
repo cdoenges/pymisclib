@@ -4,12 +4,13 @@
 
    The skeleton application is capable of parsing command line options and
    logging to the console and/or syslogd.
-   
+
    Has been tested using:
        - Python 2.6.5 Linux (Ubuntu 10.04) and MS Windows (Cygwin).
        - Python 3.1.2 Linux (Ubuntu 10.04)
        - Python 3.2 Windows XP 32 bit.
-   
+       - Python 3.2.2 Windows 7 64 bit.
+
    Known issues:
        - syslogd logging does not work on Python 3.1.2 on Ubuntu 10.04 LTS.
 
@@ -55,7 +56,7 @@ def parseCommandLineArguments(argv):
                 default='ERROR', action='store',
                 choices=['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'],
                 help='The minimum level of messages that will be logged.')
-        args = parse.parse_args()
+        args = parser.parse_args()
     except ImportError:
         # The 'argparse' module could not be imported, so we're running
         # Python 2.6 or earlier, which use 'optparse'.
@@ -114,6 +115,7 @@ def initializeLogging(args):
     # before trying UDP. If this is not what you want, change it.
     # If you need a different domain socket, add it to the list.
     from logging.handlers import SysLogHandler
+    import socket
     sh = None
     syslogdConfig = ''
     # Try the domain sockets for Linux, Mac OS X.
@@ -124,6 +126,10 @@ def initializeLogging(args):
             break
         except socket.error:
             pass
+        except AttributeError:
+            # MS Windows does not know socket.AF_UNIX, so trying domain
+            # sockets will fail. In this case, we give up looping.
+            break
     if None == sh:
         # Unable to connect using a domain socket, so try localhost:541.
         sh = SysLogHandler()
