@@ -5,11 +5,13 @@
    The skeleton application is capable of parsing command line options and
    logging to the console and/or syslogd.
 
-   Has been tested using:
-       - Python 2.6.5 Linux (Ubuntu 10.04) and MS Windows (Cygwin).
+   Has been tested under:
+       - Python 2.5.6 Mac OS X 10.7 (via macports)
+       - Python 2.6.5 Linux (Ubuntu 10.04) and MS Windows (Cygwin)
+       - Python 2.6.7 Mac OS X 10.7 (via macports)
+       - Python 2.7.1 Mac OS X 10.7 (via macports)
        - Python 3.1.2 Linux (Ubuntu 10.04)
-       - Python 3.2 Windows XP 32 bit.
-       - Python 3.2.2 Windows 7 64 bit.
+       - Python 3.2.2 Max OS X 10.7 (via macports), Windows XP 32 bit, Windows 7 64 bit
 
    Known issues:
        - syslogd logging does not work on Python 3.1.2 on Ubuntu 10.04 LTS.
