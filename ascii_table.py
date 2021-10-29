@@ -65,7 +65,26 @@ ascii_names = {
 }
 
 
-def text_table(argv):
+def text_list():
+    """Output ASCII table as Python list."""
+    print('ascii_list = [')
+    for i in range(256):
+        if i in ascii_names:
+            c = ascii_names[i]
+        else:
+            c = str(chr(i))
+            if not c.isprintable():
+                c = '_'
+        if c == "'":
+            print(f'    "{c}",  # {i} / 0x{i:02x} / {c}')
+        elif c == '\\':
+            print(f"    '\\',  # {i} / 0x{i:02x} / BACKSLASH")
+        else:
+            print(f"    '{c}',  # {i} / 0x{i:02x} / {c}")
+    print(']')
+
+
+def text_table():
     """Output ASCII table as text."""
     h1 = '     |'
     h2 = '=====+'
@@ -102,7 +121,7 @@ def text_table(argv):
         print(line)
 
 
-def html_table(argv):
+def html_list():
     h1 = '<tr>'
     for lower_nibble in range(0, 16):
         h1 += f'<th>{lower_nibble:04b}</th>'
@@ -115,11 +134,74 @@ def html_table(argv):
             if i in ascii_names:
                 c = ascii_names[i]
             else:
-                c = str(chr(i))
-                if not c.isprintable():
-                    c = '???'
-                else:
-                    c = f'&#x{i:02x};'
+                c = f'&#x{i:02x};'
+            s += f'<td>{i:#04x}</br>{i:3d}</br>{c}</td>'
+        s += '</tr>'
+        body.append(s)
+
+    print('''<!DOCTYPE html>
+<html>
+<head>
+    <title>ASCII Table</title>
+</head>
+<style>
+table {
+  border-collapse: collapse;
+}
+table, th, td {
+    border: 1px solid black;
+    padding: 8px;
+    text-align: center;
+}
+th {
+    border: 2px solid;
+    vertical-align: middle;
+}
+tr {
+    vertical-align: top;
+}
+</style>
+<body>
+    <h1>ASCII Table</h1>
+    <pre>
+''')
+    print('ascii_list = [')
+    for i in range(256):
+        if i in ascii_names:
+            c = ascii_names[i]
+        else:
+            c = str(chr(i))
+            if not c.isprintable():
+                c = f'&#x{i:02x};'
+        if c == "'":
+            print(f'    "{c}",  # {i} / 0x{i:02x} / {c}\r')
+        elif c == '\\':
+            print(f"    '\\',  # {i} / 0x{i:02x} / BACKSLASH\r")
+        else:
+            print(f"    '{c}',  # {i} / 0x{i:02x} / {c}\r")
+    print(']')
+
+    print('''
+    </pre>
+</body>
+</html>
+''')
+
+
+def html_table():
+    h1 = '<tr>'
+    for lower_nibble in range(0, 16):
+        h1 += f'<th>{lower_nibble:04b}</th>'
+    h1 += '</tr>'
+    body = []
+    for upper_nibble in range(0, 16):
+        s = f'<tr><th>{upper_nibble:04b}</th>'
+        for lower_nibble in range(0, 16):
+            i = (upper_nibble << 4) + lower_nibble
+            if i in ascii_names:
+                c = ascii_names[i]
+            else:
+                c = f'&#x{i:02x};'
             s += f'<td>{i:#04x}</br>{i:3d}</br>{c}</td>'
         s += '</tr>'
         body.append(s)
@@ -161,20 +243,24 @@ tr {
 ''')
 
 
-def main(argv):
+def main():
     parser = argparse.ArgumentParser(description='Output an ASCII table.')
     parser.add_argument(
         '-f', '--format', default='text', type=str,
-        choices=['html', 'text'],
+        choices=['html', 'list', 'python', 'text'],
         help='Output format for the table.')
     args = parser.parse_args()
 
     if args.format == 'html':
-        html_table(argv)
+        html_table()
+    elif args.format == 'list':
+        html_list()
+    elif args.format == 'python':
+        text_list()
     else:
-        text_table(argv)
+        text_table()
 
 
 # This code is executed if the file is called as a stand-alone command.
 if __name__ == '__main__':
-    main(sys.argv)
+    main()
