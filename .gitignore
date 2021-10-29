@@ -29,3 +29,5 @@ pip-log.txt
 # Mac OS X litter
 .DS_Store
 
+# Sublime Text
+*.sublime-workspace

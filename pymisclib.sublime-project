@@ -1,0 +1,23 @@
+{
+	"folders":
+	[
+		{
+			"file_exclude_patterns":
+			[
+				"*.pyc",
+				"*.sublime-workspace"
+			],
+			"folder_exclude_patterns":
+			[
+				".idea",
+				"venv"
+			],
+			"path": "."
+		}
+	],
+	"settings":
+	{
+		"tab_size": 4,
+		"translate_tabs_to_spaces": true,
+	}
+}
