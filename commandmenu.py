@@ -35,8 +35,6 @@
     limitations under the License.
 """
 
-# pylint: disable=C0103,R0903,E501
-
 import logging
 import readline
 
@@ -50,7 +48,7 @@ class CommandItem:
 
     def __str__(self):
         """A human-readable description of the instance."""
-        s = 'CommandItem<"{0.name}"'.format(self)
+        s = f'CommandItem<"{self.name}"'
         if self.default:
             s += ', default>'
         else:
@@ -80,11 +78,12 @@ class CommandMenu:
                 s += str(item)
                 first = False
             else:
-                s += ', {!s}'.format(item)
+                s += f', {item:!s}'
         s += '>'
         return s
 
     def complete(self, text, state):
+        """Command-line completion of the user text in the given state."""
         response = None
         if state == 0:
             # This is the first time for this text, so build a match list.
@@ -135,10 +134,11 @@ class CommandMenu:
         return response
 
     def input_loop(self):
+        """Loop to get input."""
         line = ''
         while line != 'quit':
             line = input(self.prompt)
-            print('Dispatch %s' % line)
+            print(f'Dispatch {line}')
 
 
 if __name__ == '__main__':

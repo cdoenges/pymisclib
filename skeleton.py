@@ -55,11 +55,12 @@
     SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-# pylint: disable=C0103,R0903
-
 import argparse
 import logging
 import sys
+
+
+logger = None
 
 
 def parseCommandLineArguments(argv: list) -> argparse.Namespace:
@@ -83,7 +84,7 @@ def parseCommandLineArguments(argv: list) -> argparse.Namespace:
     parser.add_argument('--verbose', '-v', dest='verbose',
                         default=False, action='store_true',
                         help='Enable verbose mode, which write a lot more output to the console.')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.debug:
         print('Using arguments:', args)
@@ -120,7 +121,7 @@ def initializeLogging(args: argparse.Namespace):
     # --loglevel.
     numeric_log_level = getattr(logging, args.loglevel.upper(), None)
     if not isinstance(numeric_log_level, int):
-        raise ValueError('Invalid log level: %s' % args.loglevel)
+        raise ValueError('Invalid log level: %s', args.loglevel)
 
     # Configure the root logger instance.
     global logger
@@ -158,7 +159,7 @@ def initializeLogging(args: argparse.Namespace):
     sh = None
     syslogdConfig = ''
     # Try the domain sockets for Linux, Mac OS X.
-    for domainSocket in ['/dev/log', '/var/run/syslog']:
+    for domainSocket in ('/dev/log', '/var/run/syslog'):
         try:
             sh = SysLogHandler(domainSocket)
             syslogdConfig = domainSocket
@@ -204,7 +205,7 @@ def performSkeleton():
     # 'application' code
     logger.debug('debug message')
     logger.info('info message')
-    logger.warn('warn message')
+    logger.warning('warn message')
     logger.error('error message')
     logger.critical('critical message')
 
@@ -214,7 +215,7 @@ def main(argv: list):
        parameters in the array 'argv'.'''
 
     # Handle command line arguments.
-    args = parseCommandLineArguments(argv)
+    args = parseCommandLineArguments(argv[1:])
 
     # Set up logging.
     global logger

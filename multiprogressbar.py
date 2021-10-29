@@ -22,8 +22,18 @@
     from multiprogressbar import prepare_bars, print_bars
 
     config = [
-        { 'current_iteration': 0, 'total_iterations': 5, 'prefix': 'Total', suffix': 'Writing', 'decimals': 0, bar_length': 30},
-        { 'current_iteration': 509, 'total_iterations': 1000, 'prefix': '     ', suffix': '/tmp3muil9sc/0000000000000000.tmp', 'decimals': 1, 'bar_length': 30},
+        { 'current_iteration': 0,
+          'total_iterations': 5,
+          'prefix': 'Total',
+          'suffix': 'Writing',
+          'decimals': 0,
+          'bar_length': 30},
+        { 'current_iteration': 509,
+          'total_iterations': 1000,
+          'prefix': '     ',
+          'suffix': '/tmp3muil9sc/0000000000000000.tmp',
+          'decimals': 1,
+          'bar_length': 30},
     ]
     prepare_bars(config)
     print_bars(config)
@@ -56,8 +66,6 @@
     limitations under the License.
 """
 
-# pylint: disable=C0103,R0903,E501
-
 import enum
 import sys
 from time import sleep
@@ -65,6 +73,7 @@ from time import sleep
 
 @enum.unique
 class BAR_COLORS(enum.Enum):
+    """Colors and the ANSI format strings used to create them."""
     Black = '\033[30m'
     Red = '\033[31m'
     Green = '\033[32m'
@@ -99,22 +108,25 @@ def print_single_bar(
     :param str suffix: a string that will be output after the bar
     :param int bar_length: the length of the bar in characters
     """
-    if current_iteration > total_iterations:
-        current_iteration = total_iterations
+    current_iteration = min(current_iteration, total_iterations)
 
     percents = f'{100 * (current_iteration / float(total_iterations)):.{decimals}f}'
     filled_length = int(round(bar_length * current_iteration / float(total_iterations)))
-    bar = f'{"█" * filled_length}{"-" * (bar_length - filled_length)}'
+    the_bar = f'{"█" * filled_length}{"-" * (bar_length - filled_length)}'
 
-    sys.stdout.write(f'\x1b[2K\r{prefix} |{bar_color.value}{bar}{BAR_COLORS.Black.value}| {percents}% {suffix}')
+    sys.stdout.write(
+        f'\x1b[2K\r{prefix} |{bar_color.value}{the_bar}'
+        f'{BAR_COLORS.Black.value}| {percents}% {suffix}')
 
 
 def prepare_bars(configs: list):
+    """Print to prepare for the bars."""
     for c in configs:
         sys.stdout.write('\n')
 
 
 def print_bars(configs: list):
+    """Print progress bars."""
     # Move the cursor up to the start of the line of the first bar.
     for n in range(len(configs)):
         sys.stdout.write('\033[F')  # up
@@ -133,6 +145,7 @@ def print_bars(configs: list):
 
 
 def main():
+    """Demonstration of how it works."""
     configs = [
         {
             'current_iteration': 0,

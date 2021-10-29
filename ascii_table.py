@@ -22,10 +22,9 @@
     If you need another license, contact the author to discuss terms.
 """
 
-# pylint: disable=C0103,R0903
+# pylint: disable=consider-using-assignment-expr
 
 import argparse
-import sys
 
 
 ascii_names = {
@@ -93,10 +92,10 @@ def text_table():
         h2 += '+======'
     body = []
     for upper_nibble in range(0, 16):
-        s1 = f'     |'
+        s1 = '     |'
         s2 = f'{upper_nibble:04b} |'
-        s3 = f'     |'
-        s4 = f'-----+'
+        s3 = '     |'
+        s4 = '-----+'
         for lower_nibble in range(0, 16):
             i = (upper_nibble << 4) + lower_nibble
             if i in ascii_names:
@@ -122,6 +121,7 @@ def text_table():
 
 
 def html_list():
+    """Print an ASCII Python 'list' in HTML format."""
     h1 = '<tr>'
     for lower_nibble in range(0, 16):
         h1 += f'<th>{lower_nibble:04b}</th>'
@@ -131,10 +131,7 @@ def html_list():
         s = f'<tr><th>{upper_nibble:04b}</th>'
         for lower_nibble in range(0, 16):
             i = (upper_nibble << 4) + lower_nibble
-            if i in ascii_names:
-                c = ascii_names[i]
-            else:
-                c = f'&#x{i:02x};'
+            c = ascii_names.get(i, f'&#x{i:02x};')
             s += f'<td>{i:#04x}</br>{i:3d}</br>{c}</td>'
         s += '</tr>'
         body.append(s)
@@ -189,6 +186,7 @@ tr {
 
 
 def html_table():
+    """Print an ASCII table in HTML format."""
     h1 = '<tr>'
     for lower_nibble in range(0, 16):
         h1 += f'<th>{lower_nibble:04b}</th>'
@@ -198,10 +196,7 @@ def html_table():
         s = f'<tr><th>{upper_nibble:04b}</th>'
         for lower_nibble in range(0, 16):
             i = (upper_nibble << 4) + lower_nibble
-            if i in ascii_names:
-                c = ascii_names[i]
-            else:
-                c = f'&#x{i:02x};'
+            c = ascii_names.get(i, f'&#x{i:02x};')
             s += f'<td>{i:#04x}</br>{i:3d}</br>{c}</td>'
         s += '</tr>'
         body.append(s)
@@ -244,6 +239,7 @@ tr {
 
 
 def main():
+    """It all happens here."""
     parser = argparse.ArgumentParser(description='Output an ASCII table.')
     parser.add_argument(
         '-f', '--format', default='text', type=str,

@@ -73,10 +73,10 @@ class DeadlineQueue:
         with self._cv:
             for item in self._queue:
                 if not_first:
-                    s = s + ', {} @ {}'.format(item[2], item[0])
+                    s = s + f', {item[2]} @ {item[0]}'
                 else:
                     not_first = True
-                    s = s + '{} @ {}'.format(item[2], item[0])
+                    s = s + f'{item[2]} @ {item[0]}'
         s = s + ']'
         return s
 
@@ -92,8 +92,8 @@ class DeadlineQueue:
         with self._cv:
             heapq.heappush(self._queue, (deadline, self._count, item))
             self._logger.debug(
-                'put(#{} - {} @ {:.6f} s at {:.6f} s'.
-                format(self._count, item, deadline, time.perf_counter()))
+                'put(#%u - %s @ %.6f s at %.6f s',
+                self._count, item, deadline, time.perf_counter())
             self._count += 1
             # Notify anyone waiting on the condition that the queue has
             # changed.
@@ -110,8 +110,8 @@ class DeadlineQueue:
                 self._cv.wait()
             element = heapq.heappop(self._queue)
         self._logger.debug(
-            'get(#{} - {} @ {:.6f} s at {:.6f} s'.
-            format(element[1], element[2], element[0], time.perf_counter()))
+            'get(#%u - %s @ %.6f s at %.6f s',
+            element[1], element[2], element[0], time.perf_counter())
         return element
 
     def peek(self):
@@ -125,8 +125,8 @@ class DeadlineQueue:
                 self._cv.wait()
             element = self._queue[0]
         self._logger.debug(
-            'peek(#{} - {} @ {:.6f} s'.
-            format(element[1], element[2], element[0]))
+            'peek(#%u - %s @ %.6f s',
+            element[1], element[2], element[0])
         return element
 
     def qsize(self):
@@ -137,7 +137,6 @@ class DeadlineQueue:
 
 if __name__ == '__main__':
     from threading import Barrier, BrokenBarrierError, Event, Thread
-    import time
 
     start_barrier = Barrier(2, timeout=1)   # Start running producer and consumer.
     end_barrier = Barrier(3, timeout=60)    # Wait to terminate.
@@ -158,15 +157,15 @@ if __name__ == '__main__':
             if et != 0:
                 et = start_micros + et
             # Produce some data
-            data = 'Some value {}'.format(index)
+            data = f'Some value {index}'
             dq_out.put((et, data))
-            print('Put: {} @ {:.6f} s'.format(data, et))
+            print(f'Put: {data} @ {et:.6f} s')
             index = index + 1
         dq_out.put((0, 'abc'))
         print('Put: sentinel')
         dq_out.put((sys.float_info.max, _sentinel))
-        print('Queue: {}'.format(dq_out))
-        print('Producer is done, created {} elements (plus sentinel).'.format(index))
+        print(f'Queue: {dq_out}')
+        print(f'Producer is done, created {index} elements (plus sentinel).')
         try:
             end_barrier.wait()
         except BrokenBarrierError:
@@ -192,18 +191,19 @@ if __name__ == '__main__':
             if data is _sentinel:
                 print('Get: sentinel')
                 break
-            print('Get: {} @ {:.6f} s (qsize {}) delta_s {:.6f}'.
-                  format(data, deadline, dq_in.qsize(), current_s - deadline))
+            print(f'Get: {data} @ {deadline:.6f} s (qsize {dq_in.qsize()})'
+                  f' delta_s {current_s - deadline:.6f}')
 
         # Indicate completion
-        print('Consumer is done, qsize {}.'.format(dq_in.qsize()))
-        print('Queue: {}'.format(dq_in))
+        print(f'Consumer is done, qsize {dq_in.qsize()}.')
+        print(f'Queue: {dq_in}')
         try:
             end_barrier.wait()
         except BrokenBarrierError:
             print('consumer() end_barrier broken')
 
     def demo():
+        """Demonstration of the DeadlineQueue and how to use it."""
         # Create the shared queue and launch both threads
         q = DeadlineQueue()
         t1 = Thread(target=consumer, args=(q,))
@@ -219,5 +219,5 @@ if __name__ == '__main__':
         print('Both threads are done. Terminating')
         sys.exit(0)
 
-    # Demos ausführen.
+    # Perform demonstration.
     demo()

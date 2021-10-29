@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # vim ts=4,fileencoding=utf-8
 # SPDX-License-Identifier: Apache-2.0
-"""A socket used to send and receive  message chunks over a TCP connection.
+"""A socket used to send and receive message chunks over a TCP connection.
 
 
     :LICENSE:
@@ -23,85 +23,85 @@
     If you need another license, contact the author to discuss terms.
 """
 
-import attr
+# pylint: disable=consider-using-assignment-expr
+
+from dataclasses import dataclass
 import logging
 import socket
 
 
-@attr.s
-class ChunkyStreamSocket(object):
-    logger = attr.ib(default=logging.getLogger(__name__))
-    debug = attr.ib(default=False)
+@dataclass
+class ChunkyStreamSocket:
+    """Socket used to send message chunks over a TCP connection."""
+    host: str = '127.0.0.1'
+    port: int = 10000
+    sock: socket.socket = None
+    logger: logging.Logger = logging.getLogger(__name__)
+    debug: bool = False
+    log_n_bytes: int = 0   # number of communicated bytes to log
+    _backlog_bytes: bytes = None
 
-    host = attr.ib(default='127.0.0.1', type=str,
-                   validator=attr.validators.instance_of(str))
-    port = attr.ib(default=10000, type=int,
-                   validator=attr.validators.instance_of(int))
-    socket = attr.ib(init=False, type=socket.socket,
-                     validator=attr.validators.instance_of(socket.socket))
-    _backlog_bytes = attr.ib(default=None, type=bytes)
-
-    def __attrs_post_init__(self, sock=None):
-        """Custom initializer to set or create a socket.
-
-        It appears that the attr.Factory does not support two arguments,
-        which the socket initializer requires. So we need this.
+    def __post_init__(self):
+        """Custom initializer called after __init__().
         """
-        if sock is None:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket = sock
+        if self.sock is None:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    def bind_and_listen(self, backlog: int=5, timeout: float=None):
+    def bind_and_listen(self, backlog: int = 5, timeout: float = None):
         """Bind to the host and port to make a server socket.
 
-        backlog -- The maximum number of queued connections.
-        timeout -- The number of seconds after which socket operations will
-        time out. Set to None for a blocking socket.
+            : param int backlog: The maximum number of queued connections.
+            : param float timeout: The number of seconds after which socket
+                 operations will time out. Set to None for a blocking socket.
         """
-        self.logger.debug('bind_and_listen({}:{})'.
-                          format(self.host, self.port))
+        self.logger.debug('bind_and_listen(%s:%u)', self.host, self.port)
         # Set the timeout.
-        self.socket.settimeout(timeout)
+        self.sock.settimeout(timeout)
         # Allow the server socket to re-bind immediately.
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         # Bind the socket to the given address and port.
-        self.socket.bind((self.host, self.port))
+        self.sock.bind((self.host, self.port))
         # Start listening for a connection attempt.
-        self.socket.listen(backlog)
+        self.sock.listen(backlog)
 
-    def accept(self):
+    def accept(self) -> tuple[int, tuple[str, int]]:
         """Accept a client connection on the (server) socket.
 
-           Returns the client socket and client address tuple.
+           :return: The client socket and client address tuple.
+           :rtype tuple(socket, tuple(host, port))
         """
-        client_sock, client_addr = self.socket.accept()
-        self.logger.debug('accept({})'.format(client_addr))
+        (client_sock, client_addr) = self.sock.accept()  # pylint: disable=no-member
+        self.logger.debug('accept(%s)', client_addr)
         return (client_sock, client_addr)
 
     def close(self):
         """Close the socket."""
-        self.socket.close()
-        self.socket = None
+        try:
+            self.sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        self.sock.close()
+        self.sock = None
         self.logger.debug('close()')
 
-    def connect(self, timeout: float=None):
+    def connect(self, timeout: float = None):
         """Connect client socket to the server at host:port.
 
-        timeout -- The number of seconds after which socket operations will
-        time out. Set to None for a blocking socket.
+        :param float timeout: The number of seconds after which socket
+            operations will time out. Set to None for a blocking socket.
         """
-        self.logger.debug('connect({}:{}, {})'.
-                          format(self.host, self.port, timeout))
+        self.logger.debug('connect(%s:%u)', self.host, self.port)
         # Set the timeout.
-        self.socket.settimeout(timeout)
+        self.sock.settimeout(timeout)
         # Allow server socket to re-bind immediately.
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
-            self.socket.connect((self.host, self.port))
-        except OSError as e:
-            self.logger.error('Connection attempt failed: {}'.format(e))
-            raise e
-        self.logger.debug('Connected to {}:{}'.format(self.host, self.port))
+            self.sock.connect((self.host, self.port))
+        except OSError as ex:
+            self.logger.error('Connection attempt to %s:%u failed: %s',
+                              self.host, self.port, ex)
+            raise ConnectionError('unable to connect') from ex
+        self.logger.debug('Connected to %s:%s', self.host, self.port)
 
     def send(self, msg_bytes: bytes) -> int:
         """Send the bytes.
@@ -118,15 +118,16 @@ class ChunkyStreamSocket(object):
         """
         total_nr_sent = 0
         while total_nr_sent < len(msg_bytes):
-            current_nr_sent = self.socket.send(msg_bytes[total_nr_sent:])
+            current_nr_sent = self.sock.send(msg_bytes[total_nr_sent:])
             if current_nr_sent == 0:
-                self.logger.debug('self.socket.send() failed.')
+                self.logger.debug('self.sock.send() failed.')
                 raise RuntimeError("socket connection broken")
             total_nr_sent = total_nr_sent + current_nr_sent
-        self.logger.debug('--> {}'.format(msg_bytes))
+        if self.log_n_bytes != 0:
+            self.logger.debug('--> %s', msg_bytes[:self.log_n_bytes])
         return total_nr_sent
 
-    def recv(self, length: int, timeout: float=None):
+    def recv(self, length: int, timeout: float = None):
         """Receive length bytes from the socket.
 
         This function handles chunked data (i.e. the data to receive is split
@@ -155,12 +156,14 @@ class ChunkyStreamSocket(object):
             self._backlog_bytes = None
 
         # Set the timeout.
-        self.socket.settimeout(timeout)
+        self.sock.settimeout(timeout)
 
         # Receive bytes until we have enough to satisfy the length requirement.
         while nr_received < length:
-            chunk = self.socket.recv(min(length - nr_received, 4096))
-            self.debug('socket.recv(4096) := {}'.format(chunk))
+            recv_len = min(length - nr_received, 4096)
+            chunk = self.sock.recv(recv_len)
+            if self.debug:
+                self.logger.debug('socket.recv(%u) := %s', recv_len, chunk)
             if chunk == b'':
                 raise RuntimeError("socket connection broken")
             chunks.append(chunk)
@@ -173,7 +176,8 @@ class ChunkyStreamSocket(object):
             self._backlog_bytes = msg_bytes[length:]
             msg_bytes = msg_bytes[:length]
 
-        self.logger.debug('<-- {}'.format(msg_bytes))
+        if self.log_n_bytes != 0:
+            self.logger.debug('<-- %s', msg_bytes[:self.log_n_bytes])
         return msg_bytes
 
     def recv_to_separator(self, separator: bytes):
@@ -195,7 +199,7 @@ class ChunkyStreamSocket(object):
         RuntimeError
         TimeoutError
         """
-        self.logger.debug('recv_to_separator({})'.format(separator))
+        self.logger.debug('recv_to_separator(%s)', separator)
         start_search_index = 0
         chunk = b''
         msg_bytes = b''
@@ -204,10 +208,12 @@ class ChunkyStreamSocket(object):
                 # The first time around, process the backlog.
                 chunk = self._backlog_bytes
                 self._backlog_bytes = None
-                self.logger.debug('backlog chunk = {}'.format(chunk))
+                if self.debug:
+                    self.logger.debug('backlog chunk = %s', chunk)
             else:
-                chunk = self.socket.recv(4096)
-                self.logger.debug('socket.recv(4096) := {}'.format(chunk))
+                chunk = self.sock.recv(4096)
+                if self.debug:
+                    self.logger.debug('socket.recv(4096) := %s', chunk)
             if chunk == b'':
                 raise RuntimeError("socket connection broken")
 
@@ -216,26 +222,28 @@ class ChunkyStreamSocket(object):
             if start_separator_index > -1:
                 # We found the separator at index start_separator_index.
                 self._backlog_bytes = msg_bytes[start_separator_index + len(separator):]
-                self.logger.debug('Backlog: {}'.format(self._backlog_bytes))
+                if self.debug:
+                    self.logger.debug('Backlog: %u bytes', self._backlog_bytes)
                 msg_bytes = msg_bytes[:start_separator_index]
                 break
-            else:
-                # The separator could have started in the current chunk but
-                # finishes in the next chunk, so we need to search the
-                # len(separator) - 1 last bytes of the separator again
-                start_search_index = max(0, len(msg_bytes) - (len(separator) - 1))
+            # The separator could have started in the current chunk but
+            # finishes in the next chunk, so we need to search the
+            # len(separator) - 1 last bytes of the separator again
+            start_search_index = max(0, len(msg_bytes) - (len(separator) - 1))
 
-        self.logger.debug('<-- {}'.format(msg_bytes))
+        if self.log_n_bytes != 0:
+            self.logger.debug('<-- %s', msg_bytes[:self.log_n_bytes])
         return msg_bytes
 
 
 if __name__ == '__main__':
     import sys
     from threading import Barrier, BrokenBarrierError, Thread
+    from time import sleep
 
     start_barrier = Barrier(2, timeout=5)
     end_barrier = Barrier(3, timeout=60)
-    separator = b'\0\1\2\1\0'
+    MSG_SEP = b'\0\1\2\1\0'
 
     messages = [
         b'abcdef',
@@ -247,20 +255,22 @@ if __name__ == '__main__':
     ]
 
     def server():
+        """Test server."""
         logger = logging.getLogger('server')
         logger.info('server starting')
-        server_socket = ChunkyStreamSocket(logging.getLogger('server.socket'))
+        server_socket = ChunkyStreamSocket(logger=logging.getLogger('server.socket'))
         server_socket.bind_and_listen(timeout=60)
-        logger.debug('server_socket = {}'.format(server_socket.socket))
+        logger.debug('server_socket = %s', server_socket.sock)
         start_barrier.wait()
 
         logger.info('server running')
-        (client_socket, client_addr) = server_socket.accept()
-        cs = ChunkyStreamSocket(logging.getLogger('server.cs'))
-        cs.socket = client_socket
+        (accepted_socket, client_addr) = server_socket.accept()
+        logger.debug('Accepted client from %s:%u', client_addr[0], client_addr[1])
+        cs = ChunkyStreamSocket(sock=accepted_socket,
+                                logger=logging.getLogger('server.cs'))
         while True:
-            msg = cs.recv_to_separator(separator)
-            logger.info('MSG: {}'.format(msg))
+            msg = cs.recv_to_separator(MSG_SEP)
+            logger.info('MSG: %s', msg)
             if msg == b'+++':
                 logger.debug('EOF received')
                 break
@@ -274,18 +284,19 @@ if __name__ == '__main__':
             logger.error('server() end_barrier broken')
 
     def client():
+        """Test client."""
         logger = logging.getLogger('client')
         logger.info('client starting')
-        client_socket = ChunkyStreamSocket(logging.getLogger('client.socket'))
-        logger.debug('client_socket = {}'.format(client_socket.socket))
+        client_socket = ChunkyStreamSocket(logger=logging.getLogger('client.socket'))
+        logger.debug('client_socket = %s', client_socket.sock)
         start_barrier.wait()
         logger.info('client running')
         client_socket.connect()
         for message in messages:
             try:
-                client_socket.send(message + separator)
+                client_socket.send(message + MSG_SEP)
             except RuntimeError as e:
-                logger.critical(e)
+                logger.critical('send(%u) failed: %s', len(message + MSG_SEP), e)
                 logger.critical('client terminating')
                 break
         try:
@@ -296,21 +307,22 @@ if __name__ == '__main__':
             client_socket.close()
 
     # Log everything to the console.
-    logger = logging.getLogger()
-    logger.setLevel(logging.NOTSET)
+    main_logger = logging.getLogger()
+    main_logger.setLevel(logging.NOTSET)
     ch = logging.StreamHandler()
     ch.setLevel(logging.NOTSET)
     formatter = logging.Formatter('%(asctime)s - %(name)20s - %(levelname)s - %(message)s')
     ch.setFormatter(formatter)
-    logger.addHandler(ch)
+    main_logger.addHandler(ch)
 
-    t1 = Thread(target=server, args=())
-    t2 = Thread(target=client, args=())
-    t1.start()
-    t2.start()
-    logger.info('Client and server running.')
+    server_thread = Thread(target=server, args=())
+    client_thread = Thread(target=client, args=())
+    server_thread.start()
+    sleep(1.0)  # give the server time to set up before starting client.
+    client_thread.start()
+    main_logger.info('Client and server running.')
     try:
         end_barrier.wait(timeout=5)
     except BrokenBarrierError:
-        logger.error('Barrier broken. Terminating')
+        main_logger.error('Barrier broken. Terminating')
     sys.exit(0)
