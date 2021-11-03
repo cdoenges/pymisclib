@@ -69,8 +69,12 @@ class ChunkyStreamSocket:
 
            :return: The client socket and client address tuple.
            :rtype tuple(socket, tuple(host, port))
+           :raises: TimeoutError
         """
-        (client_sock, client_addr) = self.sock.accept()  # pylint: disable=no-member
+        try:
+            (client_sock, client_addr) = self.sock.accept()  # pylint: disable=no-member
+        except socket.timeout as ex:
+            raise TimeoutError('accept() timed out') from ex
         self.logger.debug('accept(%s)', client_addr)
         return (client_sock, client_addr)
 
@@ -79,6 +83,7 @@ class ChunkyStreamSocket:
         try:
             self.sock.shutdown(socket.SHUT_RDWR)
         except OSError:
+            # Ignore errors in shutdown since we close the socket anyways.
             pass
         self.sock.close()
         self.sock = None
@@ -89,6 +94,7 @@ class ChunkyStreamSocket:
 
         :param float timeout: The number of seconds after which socket
             operations will time out. Set to None for a blocking socket.
+        :raises: ConnectionError
         """
         self.logger.debug('connect(%s:%u)', self.host, self.port)
         # Set the timeout.
