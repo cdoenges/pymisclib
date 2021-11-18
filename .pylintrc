@@ -20,7 +20,7 @@ load-plugins=
     pylint.extensions.check_elif,
     pylint.extensions.bad_builtin,
     # pylint.extensions.for_any_all,
-    pylint.extensions.code_style,
+    # pylint.extensions.code_style,
     pylint.extensions.overlapping_exceptions,
     pylint.extensions.typing,
     pylint.extensions.redefined_variable_type,
