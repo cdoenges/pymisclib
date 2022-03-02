@@ -1,11 +1,23 @@
 #!/usr/bin/env python3
 # vim ts=4,fileencoding=utf-8
 # SPDX-License-Identifier: Apache-2.0
+# SPDXID: pymisclib-1
+# PackageCopyrightText: © Copyright 2012-2022 by Christian Dönges <cd@platypus-projects.de>
+# PackageDownloadLocation: None
+# PackageHomePage: https://github.com/cdoenges/pymisclib
+# PackageName: pymisclib
+# PackageOriginator: Originator: Platypus Projects GmbH
+# PackageSourceInfo: <text>uses pymisclib from https://github.com/cdoenges/pymisclib.</text>
+# PackageSupplier: Christian Dönges (cd@platypus-projects.de)
+# PackageVersion: 1.0.0
+
 """Collection of various utility functions.
 
+    This file is part of pymisclib which lives at
+    https://github.com/cdoenges/pymisclib.
 
     :LICENSE:
-    © Copyright 2021 by Christian Dönges <cd@platypus-projects.de>
+    © Copyright 2020, 2021, 2022 by Christian Dönges <cd@platypus-projects.de>
 
     Licensed under the Apache License, Version 2.0 (the "License"); you may
     not use this file except in compliance with the License. You may obtain a

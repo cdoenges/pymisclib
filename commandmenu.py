@@ -2,6 +2,15 @@
 # vim: fileencoding=utf8
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDXID: pymisclib-1
+# PackageCopyrightText: © Copyright 2012-2022 by Christian Dönges <cd@platypus-projects.de>
+# PackageDownloadLocation: None
+# PackageHomePage: https://github.com/cdoenges/pymisclib
+# PackageName: pymisclib
+# PackageOriginator: Originator: Platypus Projects GmbH
+# PackageSourceInfo: <text>uses pymisclib from https://github.com/cdoenges/pymisclib.</text>
+# PackageSupplier: Christian Dönges (cd@platypus-projects.de)
+# PackageVersion: 1.0.0
 """An interactive text console menu.
 
     # Example
