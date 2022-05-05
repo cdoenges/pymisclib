@@ -41,11 +41,14 @@ import argparse
 import codecs
 import contextlib
 import glob
+import gzip
 import locale
 import logging
 import os
+import shutil
 import sys
 import traceback
+from datetime import datetime
 from pathlib import Path
 
 
@@ -112,7 +115,7 @@ def initialize_console():
             print('Reconfigured stderr to use utf-8 encoding.')
 
 
-def initialize_logging(args):
+def initialize_logging(args: argparse.Namespace):
     """Initialize the logging interface with the command line options
        passed through the object 'args'. An instance of the root logger is
        returned to the caller.
@@ -311,6 +314,82 @@ def resolve_wildcards(filenames: list[str]) -> list[Path]:
     return paths
 
 
+def rotate_file(file_name: str,
+                file_dir: Path,
+                rotation: int,
+                compress_level: int = 9,
+                fn_logger: logging.Logger = logging.getLogger(__name__)):
+    """Rotate a (log-)file.
+
+        The parameter rotation specifies the number of copies that will be
+        retained.
+
+        When rotating, file_name.rotation-1 is renamed to file_name.rotation
+        for all values of rotation down to 1.
+
+        The initial file (with no .rotation suffix) gains a suffix. If
+        compress_level > 0, the initial file is also compressed.
+
+        :note: Uses TRACE level logging.
+    """
+    fn_logger.debug('rotate_log(%s, %s, %d)', file_name, file_dir, rotation)
+    if rotation == 0:
+        fn_logger.trace('rotate_log(): nothing to rotate.')
+        return
+
+    max_rotation = rotation
+    while rotation >= 0:
+        if rotation == 0:
+            candidate = file_dir / file_name
+            if not candidate.exists():
+                fn_logger.trace('rotate_log(): rotation 0 does not exists. Done.')
+                return
+        else:
+            # Find previously rotated candidate.
+            candidate = file_dir / f'{file_name}.{rotation}'
+            candidate_is_compressed = False
+            if not candidate.exists():
+                candidate = file_dir / f'{file_name}.{rotation}.gz'
+                candidate_is_compressed = True
+                if not candidate.exists():
+                    fn_logger.trace('rotate_log(): rotation %d does not exist.', rotation)
+                    rotation -= 1
+                    continue
+
+        # We have found a match.
+        fn_logger.trace('rotate_log(): found candidate %s.', candidate)
+        if rotation == 0:
+            # All other rotation copies have been renamed, now the last logfile
+            # must be compressed (optional) and renamed.
+            rotate_path = file_dir / file_name
+            if compress_level > 0:
+                new_name = file_dir / f'{file_name}.1.gz'
+                fn_logger.trace('rotate_log(): compress %s -> %s.', rotate_path, new_name)
+                with open(rotate_path, 'rb') as f_in:
+                    statinfo = os.stat(rotate_path)
+                    with gzip.open(new_name, 'wb', compress_level, statinfo.st_mtime) as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                fn_logger.trace('rotate_log(): unlink %s.', rotate_path)
+                rotate_path.unlink()
+            else:
+                new_path = file_dir / f'{file_name}.{rotation + 1}'
+                fn_logger.trace('rotate_log(): rename %s -> %s', candidate, new_path)
+                candidate.rename(new_path)
+        elif rotation == max_rotation:
+            # We have found the maximum rotation file. Delete it to make room.
+            fn_logger.trace('rotate_log(): unlinking old %s.', candidate)
+            candidate.unlink()
+        elif rotation > 0:
+            # Rename existing rotation to next higher.
+            if candidate_is_compressed:
+                new_path = file_dir / f'{file_name}.{rotation + 1}.gz'
+            else:
+                new_path = file_dir / f'{file_name}.{rotation + 1}'
+            fn_logger.trace('rotate_log(): rename %s -> %s', candidate, new_path)
+            candidate.rename(new_path)
+        rotation -= 1
+
+
 def round_down(n: int, m: int) -> int:
     """Round the given number *n* down to the nearest multiple of *m*.
 
@@ -363,6 +442,32 @@ def std_open(filename: str = None, mode: str = 'w'):
     finally:
         if fh is not sys.stdin and fh is not sys.stdout:
             fh.close()
+
+
+def string_from_format(fmt: str) -> str:
+    """Given a strftime()-like format, expand into a string.
+
+        Additional formats:
+        - %P - name of the application
+
+        :param str fmt: Format string to parse.
+        :return: Resulting string.
+    """
+    fmt2 = ''
+    if '%P' in fmt:
+        start = 0
+        pos = fmt.find('%P', start)
+        while pos >= 0:
+            length = pos - start
+            fmt2 += fmt[start:length] + sys.argv[0]
+            start = pos + 2
+            pos = fmt.find('%P', start)
+        fmt2 += fmt[start:]
+    else:
+        fmt2 = fmt
+
+    now = datetime.now()
+    return now.strftime(fmt2)
 
 
 if __name__ == '__main__':
