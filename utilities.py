@@ -115,6 +115,110 @@ def initialize_console():
             print('Reconfigured stderr to use utf-8 encoding.')
 
 
+def logging_add_trace():
+    """Add a loglevel TRACE.
+
+        This function should be called only once.
+    """
+    if hasattr(logging_add_trace, "nr_calls"):
+        logging_add_trace.nr_calls += 1
+        logging.getLogger(__name__).warning(
+            'logging_add_trace() called %d times.',
+            logging_add_trace.nr_calls)
+        return
+    logging_add_trace.nr_calls = 1  # it doesn't exist yet, so initialize it
+
+    if hasattr(logging, 'TRACE'):
+        logging.getLogger(__name__).debug('TRACE logging already enabled.')
+
+    # Perform function.
+    logging.TRACE = 9
+    logging.addLevelName(logging.TRACE, 'TRACE')
+
+    def trace(self, message, *args, **kws):
+        """Output message with level TRACE."""
+        if self.isEnabledFor(logging.TRACE):
+            # Logger takes its '*args' as 'args'.
+            self._log(logging.TRACE, message, args, **kws)  # pylint: disable=protected-access
+
+    logging.Logger.trace = trace
+
+
+def logging_initialize(
+        loglevel: int = logging.WARNING,
+        log_dir_path: Path = Path('.'),
+        log_file_name_format: str = '%P.log',
+        log_rotation: int = 0,
+        log_compression: int = 5,
+        loglevel_console: int = logging.WARNING,
+        loglevel_file: int = logging.DEBUG) -> logging.Logger:
+    """Initialize the logging interface with the command line options
+       passed through the object 'args'. An instance of the root logger is
+       returned to the caller.
+
+       If a sub-module uses logging.getLogger('somename'), the logger will
+       be a child of the root logger and inherit the settings made here.
+
+        :param int loglevel: Loglevel of the logger. Log messages not meeting
+            the level requirement are not processed at all.
+        :param Path log_dir_path: Path of the directory containing log files.
+            None will prevent log file creation.
+        :param str log_file_name_format: Format string for the log file name.
+            None will prevent log file creation.
+        :param int log_rotation: How many logfiles of the same name to keep.
+            If set to 0, any existing log file is overwritten. If set to >0,
+            that many old log file copies (named <name>.1, <name>.2, etc.)
+            are retained.
+        :param int loglevel_console: Loglevel filter of the console logger.
+        :param int logfile_level: Loglevel filter of the file logger.
+        :return: The root logger instance for the application.
+        :rtype logging.logger:
+
+        :note: If the log_file_name_format contains a timestamp, log_rotation
+            will only work on other log file copies with the exact same timestamp.
+    """
+    # Define a new log level 'trace'
+    logging_add_trace()
+
+    # Configure the root logger instance.
+    global logger   # # pylint: disable=global-statement
+    logger = logging.getLogger()
+    logger.setLevel(loglevel)
+
+    # Configure the console handler.
+    lc = locale.getpreferredencoding()
+    if lc != 'utf-8':
+        locale.setlocale(locale.LC_CTYPE, 'C')
+    initialize_console()
+    ch = logging.StreamHandler()
+    ch.setLevel(loglevel_console)
+    terseFormatter = logging.Formatter('%(levelname)-8s %(message)s')
+    ch.setFormatter(terseFormatter)
+    logger.addHandler(ch)
+    logger.debug('Logging to console initialized.')
+
+    if log_file_name_format is not None and log_dir_path is not None:
+        log_file_name = string_from_format(log_file_name_format)
+        log_file_path = log_dir_path / log_file_name
+        rotate_file(log_file_name, log_dir_path, log_rotation, log_compression)
+
+        fh = logging.FileHandler(log_file_path, encoding='utf-8', mode='w')
+        fh.setLevel(loglevel_file)
+        verboseFormatter = logging.Formatter('%(asctime)s %(name)-26s %(levelname)-8s %(message)s')
+        fh.setFormatter(verboseFormatter)
+        logger.addHandler(fh)
+        logger.debug('Logging to file "%s" initialized.', log_file_path)
+
+    if lc != 'utf-8':
+        if locale.getpreferredencoding() == 'utf-8':
+            logger.debug('Changed encoding from "%s" to "utf-8".', lc)
+        elif lc == locale.getpreferredencoding():
+            logger.debug('Failed to change encoding from "%s" to "utf-8".', lc)
+        else:
+            logger.warning('Failed to change encoding from "%s" to "utf-8", got "%s".',
+                           lc, locale.getpreferredencoding())
+
+
 def initialize_logging(args: argparse.Namespace):
     """Initialize the logging interface with the command line options
        passed through the object 'args'. An instance of the root logger is
@@ -128,16 +232,7 @@ def initialize_logging(args: argparse.Namespace):
     """
 
     # Define a new log level 'trace'
-    logging.TRACE = 9
-    logging.addLevelName(logging.TRACE, 'TRACE')
-
-    def trace(self, message, *args, **kws):
-        """Output message with level TRACE."""
-        if self.isEnabledFor(logging.TRACE):
-            # Logger takes its '*args' as 'args'.
-            self._log(logging.TRACE, message, args, **kws)  # pylint: disable=protected-access
-
-    logging.Logger.trace = trace
+    logging_add_trace()
 
     # args.loglevel contains the string value of the command line option
     # --loglevel.
@@ -361,16 +456,25 @@ def rotate_file(file_name: str,
         if rotation == 0:
             # All other rotation copies have been renamed, now the last logfile
             # must be compressed (optional) and renamed.
-            rotate_path = file_dir / file_name
+            compress_path = file_dir / file_name
             if compress_level > 0:
-                new_name = file_dir / f'{file_name}.1.gz'
-                fn_logger.trace('rotate_log(): compress %s -> %s.', rotate_path, new_name)
-                with open(rotate_path, 'rb') as f_in:
-                    statinfo = os.stat(rotate_path)
-                    with gzip.open(new_name, 'wb', compress_level, statinfo.st_mtime) as f_out:
-                        shutil.copyfileobj(f_in, f_out)
-                fn_logger.trace('rotate_log(): unlink %s.', rotate_path)
-                rotate_path.unlink()
+                new_name = f'{file_name}.1.gz'
+                new_path = file_dir / new_name
+                fn_logger.trace('rotate_log(): compress %s -> %s.', compress_path, new_path)
+                with open(compress_path, 'rb') as f_in:
+                    # Get the modification time of the file we are rotating
+                    # so it will be stored correctly in the gzip archive.
+                    statinfo = os.stat(compress_path)
+                    with open(new_path, 'wb') as f_out:
+                        with gzip.GzipFile(file_name,
+                                           'wb',
+                                           compress_level,
+                                           f_out,
+                                           mtime=statinfo.st_mtime) as f_zip:
+                            shutil.copyfileobj(f_in, f_zip)
+
+                fn_logger.trace('rotate_log(): unlink %s.', compress_path)
+                compress_path.unlink()
             else:
                 new_path = file_dir / f'{file_name}.{rotation + 1}'
                 fn_logger.trace('rotate_log(): rename %s -> %s', candidate, new_path)
@@ -413,7 +517,7 @@ def round_up(n: int, m: int) -> int:
 
 
 @contextlib.contextmanager
-def std_open(filename: str = None, mode: str = 'w'):
+def std_open(filename: str = None, mode: str = 'w', encoding: str = 'utf-8'):
     """Open either a file or stdin/stdout for use with `with`.
 
         If the filename is None or '-' then stdin or stdout (depending on the
@@ -422,6 +526,7 @@ def std_open(filename: str = None, mode: str = 'w'):
 
         :param str filename: A filename, '-', or None.
         :param str mode: The mode to use for open().
+        :param str encoding: The encoding to pass to open(). Defaults to 'utf-8'.
 
         ## Example
         ```
@@ -430,9 +535,9 @@ def std_open(filename: str = None, mode: str = 'w'):
         ```
     """
     if filename and filename != '-':
-        fh = open(filename, mode)   # pylint: disable=consider-using-with
+        fh = open(filename, mode, encoding=encoding)
     else:
-        if 'r' in mode:
+        if 'r' in mode:  # pylint: disable=else-if-used
             fh = sys.stdin
         else:  # 'w'
             fh = sys.stdout
@@ -459,7 +564,7 @@ def string_from_format(fmt: str) -> str:
         pos = fmt.find('%P', start)
         while pos >= 0:
             length = pos - start
-            fmt2 += fmt[start:length] + sys.argv[0]
+            fmt2 += fmt[start:length] + Path(sys.argv[0]).stem
             start = pos + 2
             pos = fmt.find('%P', start)
         fmt2 += fmt[start:]
@@ -468,6 +573,15 @@ def string_from_format(fmt: str) -> str:
 
     now = datetime.now()
     return now.strftime(fmt2)
+
+
+def true_stem(path: Path) -> str:
+    """Return the true stem (e.g. the name without suffixes) of the Path."""
+    ts = path.stem
+    while path.suffixes:
+        ts = path.stem
+        path = Path(ts)
+    return ts
 
 
 if __name__ == '__main__':
