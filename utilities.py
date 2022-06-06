@@ -9,7 +9,7 @@
 # PackageOriginator: Originator: Platypus Projects GmbH
 # PackageSourceInfo: <text>uses pymisclib from https://github.com/cdoenges/pymisclib.</text>
 # PackageSupplier: Christian Dönges (cd@platypus-projects.de)
-# PackageVersion: 1.0.0
+# PackageVersion: 1.1.0
 
 """Collection of various utility functions.
 
