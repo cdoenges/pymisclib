@@ -9,7 +9,7 @@
 # PackageOriginator: Originator: Platypus Projects GmbH
 # PackageSourceInfo: <text>uses pymisclib from https://github.com/cdoenges/pymisclib.</text>
 # PackageSupplier: Christian Dönges (cd@platypus-projects.de)
-# PackageVersion: 1.1.0
+# PackageVersion: 1.1.1
 
 """Collection of various utility functions.
 
@@ -177,9 +177,6 @@ def logging_initialize(
         :note: If the log_file_name_format contains a timestamp, log_rotation
             will only work on other log file copies with the exact same timestamp.
     """
-    # Define a new log level 'trace'
-    logging_add_trace()
-
     # Configure the root logger instance.
     global logger   # # pylint: disable=global-statement
     logger = logging.getLogger()
@@ -217,6 +214,8 @@ def logging_initialize(
         else:
             logger.warning('Failed to change encoding from "%s" to "utf-8", got "%s".',
                            lc, locale.getpreferredencoding())
+
+    return logger
 
 
 def initialize_logging(args: argparse.Namespace):
