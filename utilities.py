@@ -9,7 +9,7 @@
 # PackageOriginator: Originator: Platypus Projects GmbH
 # PackageSourceInfo: <text>uses pymisclib from https://github.com/cdoenges/pymisclib.</text>
 # PackageSupplier: Christian Dönges (cd@platypus-projects.de)
-# PackageVersion: 1.1.1
+# PackageVersion: 1.2.0
 
 """Collection of various utility functions.
 
@@ -40,6 +40,7 @@
 import argparse
 import codecs
 import contextlib
+import ctypes
 import glob
 import gzip
 import locale
@@ -93,6 +94,19 @@ def file_path(path: str) -> Path:
         raise argparse.ArgumentTypeError(
             f'"{path}" is not a valid path to a file')
     return Path(path)
+
+
+def get_language() -> str:
+    """Determine the language the current user has set their OS to."""
+    if os.name == 'posix':
+        # BSD, Darwin, and Linux make it easy.
+        lang = os.environ['LANG'].split('.')[0]
+    elif os.name == 'windows':
+        windll = ctypes.windll.kernel32
+        lang = locale.windows_locale[windll.GetUserDefaultUILanguage()]
+    else:
+        raise RuntimeError(f'unknown OS: {os.name}')
+    return lang
 
 
 def initialize_console():
