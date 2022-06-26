@@ -9,7 +9,7 @@
 # PackageOriginator: Originator: Platypus Projects GmbH
 # PackageSourceInfo: <text>uses pymisclib from https://github.com/cdoenges/pymisclib.</text>
 # PackageSupplier: Christian Dönges (cd@platypus-projects.de)
-# PackageVersion: 1.2.0
+# PackageVersion: 1.2.1
 
 """Collection of various utility functions.
 
@@ -101,7 +101,7 @@ def get_language() -> str:
     if os.name == 'posix':
         # BSD, Darwin, and Linux make it easy.
         lang = os.environ['LANG'].split('.')[0]
-    elif os.name == 'windows':
+    elif os.name == 'nt':
         windll = ctypes.windll.kernel32
         lang = locale.windows_locale[windll.GetUserDefaultUILanguage()]
     else:
